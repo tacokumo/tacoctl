@@ -1,0 +1,54 @@
+app_name: simple-webapp
+portal: myportal
+
+build:
+  dockerfile: "./Dockerfile.web"
+  docker_context: "."
+
+service:
+  - name: web
+    command:
+      - rails
+      - s
+    http:
+      target_port: 8080
+      force_https: true
+    healthcheck:
+      http:
+        path: "/"
+    scale:
+      min: 0
+      max: 100
+      metric:
+        type: request_per_minute
+        threshold: 200
+    machine:
+      cpu: 1
+      memory: 2Gi
+      # または定義済みマシンタイプから選択する
+      flavor: small
+  - name: worker
+    command:
+      - bundle
+      - exec
+      - sidekiq
+    healthcheck:
+      process:
+        command:
+          - bash
+          - -c
+          - "ps aux |grep sidekiq"
+    scale:
+      min: 1
+      max: 100
+      metric:
+        target: cpu_usage
+        threshold: 50
+release:
+- name: db_migration
+  resources:
+    cpu: 1
+    memory: 4Gi
+  command:
+    - rails
+    - db:migrate
